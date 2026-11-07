@@ -73,6 +73,8 @@ pub struct Shared {
     pub record_hold: AtomicBool,
     /// 托盘「暂停监听」
     pub paused: AtomicBool,
+    /// 只用 Fcitx5 语音：完全关闭独立应用的按键监听
+    pub fcitx_only: AtomicBool,
 }
 
 #[derive(Default)]
@@ -105,6 +107,9 @@ pub fn start(shared: Arc<Shared>, tx: UnboundedSender<HotEvent>) {
 }
 
 fn handle(sh: &Shared, st: &Arc<Mutex<State>>, tx: &UnboundedSender<HotEvent>, e: &KeyEvent) -> bool {
+    if sh.fcitx_only.load(Ordering::Relaxed) {
+        return false;
+    }
     if sh.recording.load(Ordering::Relaxed) {
         let mut s = st.lock().unwrap();
         return if sh.record_hold.load(Ordering::Relaxed) { record_hold(sh, &mut s, tx, e) } else { record(sh, &mut s, tx, e) };

@@ -18,6 +18,7 @@ export interface Settings {
   liveText: boolean; mic: string; multi: Channel[]; lastPick: Channel | null; pickCounts: Partial<Record<Channel, number>>;
   soundEnabled: boolean; soundStart: string; soundProcessing: string; soundError: string;
   autostart: boolean; theme: string; lowerSystemVolume: boolean; lowerSystemVolumePercent: number; onboarded: boolean;
+  fcitxOnly: boolean;
   jev: JevConfig;
 }
 export interface OfflineStatus { state: "missing" | "downloading" | "ready" | "failed"; progress?: number; error?: string }

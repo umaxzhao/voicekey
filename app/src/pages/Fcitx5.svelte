@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { call } from "../lib/api";
+  import { app, save as saveSettings } from "../lib/store.svelte";
 
   type Fcitx5Settings = {
     holdKey: string;
@@ -67,6 +68,18 @@
     <div class="row">
       <div class="lbl">尾音时长<small>松开后继续录制的毫秒数，避免最后一个字被截断</small></div>
       <input class="in" type="number" min="0" max="2000" step="50" bind:value={s.tailMs} />
+    </div>
+    <div class="row">
+      <div class="lbl">
+        仅使用 Fcitx5 语音
+        <small>关闭独立应用的按键监听，避免同时出现两个浮层或重复上屏</small>
+      </div>
+      <button
+        class="sw"
+        class:on={app.s?.fcitxOnly}
+        onclick={() => app.s && saveSettings({ fcitxOnly: !app.s.fcitxOnly })}
+        aria-label="仅使用 Fcitx5 语音"
+      ></button>
     </div>
     <div class="row">
       <div class="lbl">配置文件<small>{s.configPath}</small></div>

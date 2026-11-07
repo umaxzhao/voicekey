@@ -15,6 +15,15 @@ if ! command -v cargo >/dev/null; then
     exit 1
 fi
 
+# 有些机器只装了运行时库，开发用的 .pc 在 Homebrew/Linuxbrew 里。
+if [ -d "$HOME/.linuxbrew/opt" ]; then
+    BREW_PC=""
+    for d in "$HOME"/.linuxbrew/opt/*/lib/pkgconfig; do
+        [ -d "$d" ] && BREW_PC="${BREW_PC}${d}:"
+    done
+    export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:${BREW_PC}${PKG_CONFIG_PATH:+$PKG_CONFIG_PATH:}$HOME/.linuxbrew/lib/pkgconfig"
+fi
+
 missing=()
 for pc in webkit2gtk-4.1 gtk+-3.0 libsoup-3.0 alsa ayatana-appindicator3-0.1; do
     pkg-config --exists "$pc" || missing+=("$pc")

@@ -36,6 +36,7 @@ fn apply<R: Runtime>(app: &AppHandle<R>, s: &Settings) {
         c.set_hold(&s.hold_codes());
         c.tap = s.tap_shortcut.clone();
     }
+    st.hk.fcitx_only.store(s.fcitx_only, Ordering::Relaxed);
     ui::refresh_tray(app, s, st.hk.paused.load(Ordering::Relaxed));
     let al = app.autolaunch();
     if al.is_enabled().unwrap_or(false) != s.autostart {

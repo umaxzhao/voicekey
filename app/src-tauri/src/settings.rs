@@ -121,6 +121,8 @@ pub struct Settings {
     /// 录音时相对原始系统音量降低的百分比；持久化为 settings.json 的 lowerSystemVolumePercent。
     pub lower_system_volume_percent: u8,
     pub onboarded: bool,
+    /// Linux：只用 Fcitx5 全局语音，关闭独立应用的按键监听，避免两个浮层/重复上屏
+    pub fcitx_only: bool,
     /// 多渠道定稿后的 Jev 智能选择配置；默认关闭
     pub jev: voicekey_core::jev::Config,
 }
@@ -157,6 +159,7 @@ impl Default for Settings {
             lower_system_volume: false,
             lower_system_volume_percent: LOWER_SYSTEM_VOLUME_PERCENT_DEFAULT,
             onboarded: false,
+            fcitx_only: false,
             jev: voicekey_core::jev::Config::default(),
         }
     }
