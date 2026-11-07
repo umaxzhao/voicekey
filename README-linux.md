@@ -14,6 +14,29 @@ Linux 平台层：全局快捷键、模拟按键、剪贴板粘贴、托盘、�
 - 全局按键监听走 evdev，X11 与 Wayland 都可以；没有 `input` 权限时回退 XRecord（仅 X11）
 - Wayland 下不支持逐字上屏，会在说话结束后一次性粘贴
 
+## 一键安装（推荐）
+
+从 [Releases](https://github.com/umaxzhao/voicekey/releases) 下载 `voicekey-linux-1.9.0-amd64.tar.gz`，解压后运行：
+
+```bash
+tar -xzf voicekey-linux-1.9.0-amd64.tar.gz
+cd voicekey-linux-1.9.0-amd64
+./install-voicekey.sh
+```
+
+脚本会完成：安装 deb、下载微信离线模型、写入 Fcitx5 配置、重启 Fcitx5 并检查模块是否加载。
+
+常用选项：
+
+```bash
+./install-voicekey.sh --hold Super_L   # 用左 Super 说话（会自动处理 GNOME 概览冲突）
+./install-voicekey.sh --online         # Fcitx5 跟随图形界面的渠道
+./install-voicekey.sh --no-model       # 不下载离线模型
+./install-voicekey.sh --check          # 只检查环境
+```
+
+要求：Ubuntu 26.04+、x86_64、Fcitx5。
+
 ## 安装依赖
 
 ```bash
