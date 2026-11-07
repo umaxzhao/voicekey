@@ -8,11 +8,27 @@ use mac as imp;
 mod win;
 #[cfg(windows)]
 use win as imp;
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+use linux as imp;
 
 mod volume;
 
 pub use imp::{caret, front_app, inject_key, paste, secure_input, start_hook, FrontApp};
 pub use volume::OutputVolumeDucker;
+
+/// 是否支持逐字上屏；Wayland 下改为结束后一次性粘贴。
+pub fn live_text_supported() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        imp::live_text_supported()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        true
+    }
+}
 
 pub const CTRL: u8 = 1;
 pub const ALT: u8 = 2;
@@ -76,6 +92,8 @@ pub fn mods_prefix(m: u8) -> String {
     let mut s = String::new();
     let table: &[(u8, &str)] = if cfg!(target_os = "macos") {
         &[(CTRL, "⌃"), (ALT, "⌥"), (SHIFT, "⇧"), (META, "⌘")]
+    } else if cfg!(target_os = "linux") {
+        &[(CTRL, "Ctrl+"), (ALT, "Alt+"), (SHIFT, "Shift+"), (META, "Super+")]
     } else {
         &[(CTRL, "Ctrl+"), (ALT, "Alt+"), (SHIFT, "Shift+"), (META, "Win+")]
     };

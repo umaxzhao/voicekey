@@ -4,3 +4,9 @@ build/
 /target/
 /dist/
 .DS_Store
+
+# Linux build artifacts
+linux/fcitx5/build/
+app/src-tauri/resources/fcitx5/voicekey.so
+app/src-tauri/resources/voicekey-asr
+**/__pycache__/

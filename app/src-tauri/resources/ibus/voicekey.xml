@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component>
+  <name>org.freedesktop.IBus.VoiceKey</name>
+  <description>VoiceKey 语音输入</description>
+  <exec>/usr/lib/VoiceKey/voicekey_ibus.py</exec>
+  <version>1.9.0</version>
+  <author>VoiceKey</author>
+  <license>MIT</license>
+  <homepage>https://github.com/J3n5en/voicekey</homepage>
+  <textdomain>voicekey</textdomain>
+  <engines>
+    <engine>
+      <name>voicekey</name>
+      <language>zh</language>
+      <license>MIT</license>
+      <author>VoiceKey</author>
+      <layout>us</layout>
+      <longname>VoiceKey 语音输入</longname>
+      <description>按住右 Alt 说话，松开上屏</description>
+      <rank>1</rank>
+    </engine>
+  </engines>
+</component>

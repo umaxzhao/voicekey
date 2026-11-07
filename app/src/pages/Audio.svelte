@@ -64,15 +64,22 @@
 </div>
 <h3>系统音频</h3>
 <div class="group">
-  <div class="row">
-    <div class="lbl">录音时降低音量<small>减少背景声音的干扰，结束后自动恢复</small></div>
-    {#if s.lowerSystemVolume}
-      <!-- 录音中拖动比例会即时生效；worker 从当前实际音量平滑重定向到新目标，不等待当前过渡完成。 -->
-      <input class="duck-range" type="range" min="20" max="100" step="5" value={s.lowerSystemVolumePercent} oninput={(e) => save({ lowerSystemVolumePercent: +e.currentTarget.value })} aria-label="录音时降低音量比例" aria-valuetext={s.lowerSystemVolumePercent === 100 ? "静音" : `降低 ${s.lowerSystemVolumePercent}%`} />
-      <b class="duck-value">{duckReductionLabel}</b>
-    {/if}
-    <button class="sw" class:on={s.lowerSystemVolume} onclick={() => save({ lowerSystemVolume: !s.lowerSystemVolume })} aria-label="录音时降低音量"></button>
-  </div>
+  {#if app.info?.platform !== "linux"}
+    <div class="row">
+      <div class="lbl">录音时降低音量<small>减少背景声音的干扰，结束后自动恢复</small></div>
+      {#if s.lowerSystemVolume}
+        <!-- 录音中拖动比例会即时生效；worker 从当前实际音量平滑重定向到新目标，不等待当前过渡完成。 -->
+        <input class="duck-range" type="range" min="20" max="100" step="5" value={s.lowerSystemVolumePercent} oninput={(e) => save({ lowerSystemVolumePercent: +e.currentTarget.value })} aria-label="录音时降低音量比例" aria-valuetext={s.lowerSystemVolumePercent === 100 ? "静音" : `降低 ${s.lowerSystemVolumePercent}%`} />
+        <b class="duck-value">{duckReductionLabel}</b>
+      {/if}
+      <button class="sw" class:on={s.lowerSystemVolume} onclick={() => save({ lowerSystemVolume: !s.lowerSystemVolume })} aria-label="录音时降低音量"></button>
+    </div>
+  {:else}
+    <div class="row">
+      <div class="lbl">录音时降低音量<small>Linux 版暂未实现系统音量自动压低</small></div>
+      <span style="color: var(--fg3); font-size: 12.5px">暂不可用</span>
+    </div>
+  {/if}
 </div>
 
 <h3>提示音</h3>

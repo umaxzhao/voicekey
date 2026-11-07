@@ -127,7 +127,14 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        let (hold, tap) = if cfg!(target_os = "macos") { ("rightAlt", (54, "右 ⌘")) } else { ("rightAlt", (0xA3, "右 Ctrl")) };
+        let (hold, tap) = if cfg!(target_os = "macos") {
+            ("rightAlt", (54, "右 ⌘"))
+        } else if cfg!(target_os = "linux") {
+            // X11 keycode：105 = ControlRight
+            ("rightAlt", (105, "右 Ctrl"))
+        } else {
+            ("rightAlt", (0xA3, "右 Ctrl"))
+        };
         Self {
             channel: Channel::Doubao,
             hold_key: hold.into(),
@@ -204,6 +211,17 @@ impl Settings {
             multi = engines;
         }
         self.multi = multi;
+
+        // 从 macOS/Windows 迁移来的配置里，键码是别的平台的编码；Linux 下无法匹配时回到默认右 Ctrl。
+        #[cfg(target_os = "linux")]
+        if let Some(t) = &mut self.tap_shortcut {
+            if t.mods == 0
+                && voicekey_platform::modifier(t.code).is_none()
+                && !voicekey_platform::is_function_key(t.code)
+            {
+                *t = Shortcut { code: 105, mods: 0, name: "右 Ctrl".into() };
+            }
+        }
     }
 
     pub fn hold_codes(&self) -> Vec<u32> {
@@ -253,6 +271,19 @@ mod tests {
         settings.lower_system_volume_percent = 99;
         settings.sanitize();
         assert_eq!(settings.lower_system_volume_percent, 100);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_resets_foreign_tap_keycode_but_keeps_x11_modifier() {
+        let mut s = Settings::default();
+        s.tap_shortcut = Some(Shortcut { code: 0xA3, mods: 0, name: "右 Ctrl".into() });
+        s.sanitize();
+        assert_eq!(s.tap_shortcut.as_ref().unwrap().code, 105);
+
+        s.tap_shortcut = Some(Shortcut { code: 105, mods: 0, name: "右 Ctrl".into() });
+        s.sanitize();
+        assert_eq!(s.tap_shortcut.as_ref().unwrap().code, 105);
     }
 
     #[test]

@@ -8,6 +8,7 @@ pub mod pb;
 pub mod qwen;
 pub mod util;
 pub mod sogou;
+pub mod terms;
 pub mod wetype;
 pub mod ifly;
 pub mod ws;

@@ -15,6 +15,11 @@ use voicekey_core::audio::Recorder;
 use voicekey_core::{BaiduEngine, ChatterflyEngine, DoubaoEngine, Engine, IflyEngine, QwenEngine, SogouEngine, WeTypeEngine};
 use voicekey_platform::{self as pf, Special, Typer};
 
+/// 识别结果落字前套用术语表（流式模式已经边打边显示，不在这里改写）。
+fn with_terms(text: &str) -> String {
+    voicekey_core::terms::Terms::load(&voicekey_core::terms::default_path()).apply(text)
+}
+
 pub enum Msg {
     Hot(HotEvent),
     Level(f32),
@@ -594,7 +599,8 @@ impl Ctl {
         self.auto_stop = auto_stop;
         self.gen += 1;
         self.mode = Mode::Single(s.channel);
-        self.typer = s.streaming.then(Typer::default);
+        // Wayland 没有可靠的逐字注入，改为结束时一次性粘贴。
+        self.typer = (s.streaming && pf::live_text_supported()).then(Typer::default);
         self.segs = Segments::default();
         let seg = self.segs.start();
         ui::hud(&self.app, "listen", "", s.channel);
@@ -758,7 +764,7 @@ impl Ctl {
                 }
                 if let Some(e) = error {
                     if !streamed && !text.is_empty() {
-                        pf::paste(&text);
+                        pf::paste(&with_terms(&text));
                     }
                     let msg = if text.is_empty() {
                         format!("识别失败：{e}")
@@ -779,7 +785,7 @@ impl Ctl {
                     self.play_after_restore(SoundEvent::Error);
                 } else {
                     ui::hud_hide(&self.app, 0);
-                    pf::paste(&text);
+                    pf::paste(&with_terms(&text));
                 }
             }
             Mode::Pick | Mode::Compare => {
@@ -934,7 +940,7 @@ impl Ctl {
                     pf::paste(&text);
                 });
             } else {
-                pf::paste(&partial);
+                pf::paste(&with_terms(&partial));
             }
         }
         match message {

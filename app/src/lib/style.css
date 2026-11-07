@@ -16,6 +16,7 @@
   color-scheme: dark;
 }
 :root.win { --r: 8px; --rs: 4px; --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif; }
+:root.linux { --r: 8px; --rs: 4px; --font: "Ubuntu", "Noto Sans CJK SC", "Noto Sans SC", "DejaVu Sans", sans-serif; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body { font: 13px/1.5 var(--font); color: var(--fg); -webkit-user-select: none; user-select: none; cursor: default; overflow: hidden; }

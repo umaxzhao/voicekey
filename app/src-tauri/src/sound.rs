@@ -181,6 +181,7 @@ mod system {
 /// 非 macOS 平台没有系统提示音路径：系统铃声不可用，WAV 兜底由调用方的
 /// `fallback_id` 分支承担；空实现仅保证跨平台编译。
 #[cfg(not(target_os = "macos"))]
+#[allow(dead_code)]
 fn play_system_quietly<R: Runtime>(_: &AppHandle<R>, _: &str, _: Option<String>) {}
 
 fn play_quietly<R: Runtime>(app: &AppHandle<R>, id: &str) {

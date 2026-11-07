@@ -11,6 +11,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, LogicalSize, Manager, Monitor, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 const TRAY: &[u8] = include_bytes!("../icons/tray.png");
+const TRAY_LIGHT: &[u8] = include_bytes!("../icons/tray-light.png");
 const HUD_W: f64 = 680.0;
 const HUD_H: f64 = 120.0;
 const PICK_W: f64 = 520.0;
@@ -100,7 +101,12 @@ fn overlay<R: Runtime>(app: &AppHandle<R>, label: &str, w: f64, h: f64) -> tauri
 }
 
 pub fn create_overlays<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
-    overlay(app, "hud", HUD_W, HUD_H)?.set_ignore_cursor_events(true)?;
+    let hud = overlay(app, "hud", HUD_W, HUD_H)?;
+    // Wayland 下窗口在 show 之前没有底层 GdkWindow，Tao 的
+    // set_ignore_cursor_events 会 unwrap None 直接 panic；X11 可以立即设置。
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        hud.set_ignore_cursor_events(true)?;
+    }
     let pick = overlay(app, "pick", PICK_W, 300.0)?;
     #[cfg(target_os = "macos")]
     panel::convert(&pick);
@@ -288,21 +294,37 @@ fn tray_icon<R: Runtime>(app: &AppHandle<R>) -> Option<Image<'static>> {
     if cfg!(target_os = "macos") {
         Image::from_bytes(TRAY).ok()
     } else {
-        app.default_window_icon().map(|i| i.clone().to_owned())
+        // GNOME 顶栏是深色的，用白色单色波形；应用图标在深色栏上几乎看不见。
+        Image::from_bytes(TRAY_LIGHT)
+            .ok()
+            .or_else(|| app.default_window_icon().map(|i| i.clone().to_owned()))
+            .or_else(|| Image::from_bytes(TRAY).ok())
     }
 }
 
 pub fn build_tray<R: Runtime>(app: &AppHandle<R>, s: &Settings) -> tauri::Result<()> {
+    // GNOME 的 appindicator 扩展会按「图标路径」缓存图标；固定路径在重启后
+    // 可能命中旧的空缓存。用每次进程独立的临时目录，强制它重新加载。
+    let base = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    let dir = base.join(format!("voicekey-tray-{}", std::process::id()));
+
     let mut b = TrayIconBuilder::with_id("main")
         .menu(&tray_menu(app, s, false)?)
         .show_menu_on_left_click(true)
         .icon_as_template(true)
+        .temp_dir_path(dir)
         .tooltip("VoiceKey")
         .on_menu_event(|app, ev| crate::tray_event(app, ev.id().as_ref()));
     if let Some(i) = tray_icon(app) {
         b = b.icon(i);
     }
-    b.build(app)?;
+    let tray = b.build(app)?;
+    // 再设置一次图标，让 appindicator 生成新的文件名并刷新缓存。
+    if let Some(i) = tray_icon(app) {
+        let _ = tray.set_icon(Some(i));
+    }
     Ok(())
 }
 

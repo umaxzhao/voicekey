@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["deb"],
+    "publisher": "VoiceKey",
+    "shortDescription": "按住快捷键说话的语音输入工具",
+    "longDescription": "VoiceKey Linux 移植版：按住或点按快捷键说话，识别结果直接写入当前输入框。支持豆包、微信、千问、百度、搜狗、讯飞等云端渠道，以及微信离线识别。",
+    "linux": {
+      "deb": {
+        "depends": [
+          "libasound2",
+          "libevdev2",
+          "librsvg2-2",
+          "xdotool",
+          "python3-gi",
+          "gir1.2-gtk-3.0",
+          "gir1.2-ibus-1.0",
+          "pulseaudio-utils",
+          "alsa-utils",
+          "wl-clipboard",
+          "ydotool"
+        ],
+        "recommends": ["fcitx5"],
+        "files": {
+          "/usr/bin/voicekey-asr": "resources/voicekey-asr",
+          "/usr/lib/VoiceKey/voicekey_ibus.py": "resources/ibus/voicekey_ibus.py",
+          "/usr/lib/VoiceKey/voicekey-hud.py": "resources/fcitx5/voicekey-hud.py",
+          "/usr/share/ibus/component/voicekey.xml": "resources/ibus/voicekey.xml",
+          "/usr/lib/x86_64-linux-gnu/fcitx5/voicekey.so": "resources/fcitx5/voicekey.so",
+          "/usr/share/fcitx5/addon/voicekey.conf": "resources/fcitx5/voicekey-addon.conf"
+        },
+        "postInstallScript": "scripts/postinst.sh"
+      }
+    }
+  }
+}

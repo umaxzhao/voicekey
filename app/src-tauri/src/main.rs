@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod asr_cli;
 mod controller;
 mod hotkey;
 mod offline;
@@ -112,8 +113,15 @@ fn get_state(app: AppHandle) -> serde_json::Value {
     let hold: Vec<_> = pf::hold_keys().iter().map(|k| json!({ "id": k.id, "name": k.name })).collect();
     json!({
         "settings": s,
-        "platform": if cfg!(target_os = "macos") { "mac" } else { "win" },
+        "platform": if cfg!(target_os = "macos") {
+            "mac"
+        } else if cfg!(target_os = "linux") {
+            "linux"
+        } else {
+            "win"
+        },
         "arch": std::env::consts::ARCH,
+        "liveText": pf::live_text_supported(),
         "version": app.package_info().version.to_string(),
         "holdKeys": hold,
         "channels": Channel::available(),
@@ -233,8 +241,199 @@ fn list_sounds() -> Vec<serde_json::Value> {
 
 #[tauri::command]
 fn open_url(url: String) {
-    let cmd = if cfg!(target_os = "macos") { "open" } else { "explorer" };
+    let cmd = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "linux") {
+        "xdg-open"
+    } else {
+        "explorer"
+    };
     let _ = std::process::Command::new(cmd).arg(url).spawn();
+}
+
+#[derive(serde::Deserialize)]
+struct TermInput {
+    canonical: String,
+    #[serde(default)]
+    aliases: Vec<String>,
+    #[serde(default)]
+    hotword: bool,
+    #[serde(default)]
+    protect: bool,
+}
+
+fn terms_json(terms: &[voicekey_core::terms::Term]) -> Vec<serde_json::Value> {
+    terms
+        .iter()
+        .map(|term| {
+            json!({
+                "canonical": term.canonical,
+                "aliases": term.aliases,
+                "hotword": term.hotword,
+                "protect": term.protect,
+            })
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn get_terms() -> serde_json::Value {
+    let path = voicekey_core::terms::default_path();
+    let terms = voicekey_core::terms::Terms::load(&path);
+    json!({
+        "path": path.display().to_string(),
+        "savePath": voicekey_core::terms::terms_path().display().to_string(),
+        "terms": terms_json(terms.terms()),
+    })
+}
+
+#[tauri::command]
+fn term_presets() -> Vec<serde_json::Value> {
+    terms_json(&voicekey_core::terms::presets())
+}
+
+#[tauri::command]
+fn save_terms(terms: Vec<TermInput>) -> Result<(), String> {
+    let list = terms
+        .into_iter()
+        .filter_map(|term| {
+            let canonical = term.canonical.trim();
+            if canonical.is_empty() {
+                return None;
+            }
+            let aliases: Vec<String> = term
+                .aliases
+                .into_iter()
+                .map(|alias| alias.trim().to_string())
+                .filter(|alias| !alias.is_empty() && alias != canonical)
+                .collect();
+            Some(voicekey_core::terms::Term {
+                canonical: canonical.to_string(),
+                aliases,
+                hotword: term.hotword,
+                protect: term.protect,
+            })
+        })
+        .collect();
+    voicekey_core::terms::Terms::from_terms(list)
+        .save(&voicekey_core::terms::terms_path())
+        .map_err(|e| e.to_string())
+}
+
+fn fcitx5_config_path() -> std::path::PathBuf {
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(|home| std::path::PathBuf::from(home).join(".config"))
+        })
+        .unwrap_or_else(|| std::path::PathBuf::from(".config"));
+    base.join("voicekey/fcitx5.conf")
+}
+
+#[tauri::command]
+fn get_fcitx5_settings() -> serde_json::Value {
+    let path = fcitx5_config_path();
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut hold = "F5".to_string();
+    let mut tail = 600u32;
+    let mut command = String::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') || line.starts_with('[') {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        match key.trim().to_ascii_lowercase().as_str() {
+            "holdkey" => hold = value.trim().to_string(),
+            "tailms" => tail = value.trim().parse().unwrap_or(600),
+            "command" => command = value.trim().to_string(),
+            _ => {}
+        }
+    }
+    json!({
+        "holdKey": hold,
+        "tailMs": tail,
+        "command": command,
+        "configPath": path.display().to_string(),
+    })
+}
+
+#[tauri::command]
+fn set_fcitx5_settings(hold_key: String, tail_ms: u32) -> Result<(), String> {
+    const HOLDS: &[&str] = &[
+        "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Alt_R", "Control_R",
+        "Shift_R", "Super_L", "Super_R",
+    ];
+    if !HOLDS.contains(&hold_key.as_str()) {
+        return Err("不支持的快捷键".into());
+    }
+    let path = fcitx5_config_path();
+    let existing = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut lines: Vec<String> = Vec::new();
+    let mut has_hold = false;
+    let mut has_tail = false;
+    let mut has_section = false;
+    for line in existing.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') {
+            has_section = true;
+        }
+        let lower = trimmed.to_ascii_lowercase();
+        if lower.starts_with("holdkey") {
+            lines.push(format!("HoldKey={hold_key}"));
+            has_hold = true;
+        } else if lower.starts_with("tailms") {
+            lines.push(format!("TailMs={}", tail_ms.min(2000)));
+            has_tail = true;
+        } else {
+            lines.push(line.to_string());
+        }
+    }
+    if !has_section {
+        lines.insert(0, "[VoiceKey]".into());
+    }
+    if !has_hold {
+        lines.push(format!("HoldKey={hold_key}"));
+    }
+    if !has_tail {
+        lines.push(format!("TailMs={}", tail_ms.min(2000)));
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let tmp = path.with_extension("conf.tmp");
+    std::fs::write(&tmp, lines.join("\n") + "\n").map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn restart_fcitx5() -> Result<(), String> {
+    let mut command = std::process::Command::new("fcitx5");
+    command.args(["-r", "-d"]);
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    let mut addon_dirs = Vec::new();
+    if let Some(home) = &home {
+        let local = home.join(".local/lib/fcitx5");
+        if local.is_dir() {
+            addon_dirs.push(local.display().to_string());
+        }
+    }
+    addon_dirs.push("/usr/lib/x86_64-linux-gnu/fcitx5".into());
+    command.env("FCITX_ADDON_DIRS", addon_dirs.join(":"));
+    let mut data_dirs = Vec::new();
+    if let Some(home) = &home {
+        let local = home.join(".local/share");
+        if local.is_dir() {
+            data_dirs.push(local.display().to_string());
+        }
+    }
+    data_dirs.push("/usr/share".into());
+    command.env("FCITX_DATA_DIRS", data_dirs.join(":"));
+    command.spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -257,6 +456,9 @@ fn main() {
     if let Some(code) = offline::worker_main() {
         std::process::exit(code);
     }
+    if let Some(code) = asr_cli::main() {
+        std::process::exit(code);
+    }
     let settings = Settings::load();
     let first_run = !settings.onboarded;
     tauri::Builder::default()
@@ -266,7 +468,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_state, set_settings, perm_status, perm_action, microphones, record_shortcut,
             pick_choose, pick_key, pick_resize, compare_toggle, meter, open_url, model_download,
-            update_check, update_install, jev_test, preview_sound, list_sounds
+            update_check, update_install, jev_test, preview_sound, list_sounds,
+            get_fcitx5_settings, set_fcitx5_settings, restart_fcitx5,
+            get_terms, term_presets, save_terms
         ])
         .setup(move |app| {
             #[cfg(target_os = "macos")]
@@ -290,8 +494,21 @@ fn main() {
                 let _ = audio_tx.send(Msg::MicrophonesChanged(mics));
             });
             ui::create_overlays(&handle)?;
+            #[cfg(target_os = "linux")]
+            if let Err(e) = ui::build_tray(&handle, &settings) {
+                // 某些精简桌面没有 StatusNotifier/AppIndicator 宿主，托盘失败不应阻止应用启动。
+                eprintln!("托盘初始化失败（已跳过）：{e}");
+            }
+            #[cfg(not(target_os = "linux"))]
             ui::build_tray(&handle, &settings)?;
             apply(&handle, &settings);
+            #[cfg(target_os = "linux")]
+            {
+                // Linux 桌面上从菜单启动时直接展示设置窗口；托盘应用仍会常驻。
+                let _ = first_run;
+                ui::show_settings(&handle);
+            }
+            #[cfg(not(target_os = "linux"))]
             if first_run || !perm::accessibility(false) {
                 ui::show_settings(&handle);
             }
@@ -309,9 +526,9 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("failed to build app")
-        .run(|app, e| match e {
+        .run(|_app, e| match e {
             #[cfg(target_os = "macos")]
-            RunEvent::Reopen { .. } => ui::show_settings(app),
+            RunEvent::Reopen { .. } => ui::show_settings(_app),
             RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
             _ => {}
         });

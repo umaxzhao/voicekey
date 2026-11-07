@@ -98,6 +98,14 @@ xattr -dr com.apple.quarantine /Applications/VoiceKey.app
 - **微信离线**：下载微信输入法官方离线语音包（约 100MB，来自腾讯 CDN），解出模型保存在数据目录的 `wtoffline/` 下；由本项目自己实现的 int8 推理运行，不依赖官方程序，macOS 和 Windows 都可用。
 - **豆包离线**（仅 Apple 芯片 Mac）：下载引擎库（约 8MB，来自本仓库 [offline-libs](https://github.com/J3n5en/voicekey/releases/tag/offline-libs) Release）和模型（约 177MB，来自字节 CDN），保存在 `~/Library/Application Support/VoiceKey/offline/`；只在用到时启动后台进程，空闲 5 分钟后自动释放。
 
+## Linux / Ubuntu
+
+Linux 移植版的依赖、构建与已知差异见 [README-linux.md](README-linux.md)，一键构建执行：
+
+```
+./build-linux.sh
+```
+
 ## 从源码构建
 
 需要 Rust（stable）、Node 22+ 和 CMake；Windows 另需 MSVC 生成工具。
